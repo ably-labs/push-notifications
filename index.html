@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ably Push Notifications</title>
+    <style>
+      /* ── Reset ── */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      /* ── Brand tokens ── */
+      :root {
+        --ably-orange: #ff5416;
+        --ably-orange-dark: #cc4312;
+        --ably-black: #03020d;
+        --ably-white: #ffffff;
+        --ably-grey-50: #f7f7f8;
+        --ably-grey-100: #ebebed;
+        --ably-grey-200: #d1d1d6;
+        --ably-grey-400: #8e8e99;
+        --ably-grey-600: #52525c;
+
+        --color-bg: var(--ably-white);
+        --color-bg-subtle: var(--ably-grey-50);
+        --color-surface: var(--ably-white);
+        --color-border: var(--ably-grey-200);
+        --color-text: var(--ably-black);
+        --color-text-muted: var(--ably-grey-600);
+        --color-accent: var(--ably-orange);
+        --color-accent-hover: var(--ably-orange-dark);
+        --color-accent-text: var(--ably-white);
+      }
+
+      /* ── Base ── */
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--color-bg);
+        color: var(--color-text);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      a {
+        color: var(--color-accent);
+      }
+      a:hover {
+        color: var(--color-accent-hover);
+      }
+
+      button {
+        cursor: pointer;
+        background: var(--color-accent);
+        color: var(--color-accent-text);
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1.25rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: background 0.15s;
+      }
+      button:hover:not(:disabled) {
+        background: var(--color-accent-hover);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      button.secondary {
+        background: transparent;
+        color: var(--color-text-muted);
+        border: 1px solid var(--color-border);
+      }
+      button.secondary:hover:not(:disabled) {
+        background: var(--color-bg-subtle);
+        color: var(--color-text);
+      }
+
+      /* ── Header ── */
+      header {
+        display: flex;
+        align-items: center;
+        padding: 1rem 2rem;
+        border-bottom: 1px solid var(--color-border);
+        background: var(--color-surface);
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--color-text);
+        text-decoration: none;
+      }
+
+      .logo-mark {
+        width: 32px;
+        height: 32px;
+        background: var(--ably-orange);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 900;
+        font-size: 1rem;
+      }
+
+      /* ── Two-column layout ── */
+      main {
+        flex: 1;
+        max-width: 1100px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 2.5rem 1.5rem;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto 1fr;
+        gap: 1.5rem;
+      }
+
+      .page-header {
+        grid-column: 1 / -1;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+      }
+      p.subtitle {
+        color: var(--color-text-muted);
+        font-size: 0.95rem;
+        margin-top: 0.4rem;
+      }
+
+      .left-col {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      .right-col {
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ── Card ── */
+      .card {
+        background: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 10px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .card.fill {
+        flex: 1;
+      }
+
+      .card h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      /* ── Status badge ── */
+      .status-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: var(--color-text-muted);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.2rem 0.65rem;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+      .badge::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .badge.idle {
+        background: var(--ably-grey-100);
+        color: var(--ably-grey-600);
+      }
+      .badge.pending {
+        background: #fff3e0;
+        color: #e65100;
+      }
+      .badge.ok {
+        background: #e8f5e9;
+        color: #2e7d32;
+      }
+      .badge.error {
+        background: #ffebee;
+        color: #c62828;
+      }
+
+      /* ── Actions ── */
+      .actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+
+      /* ── Log ── */
+      #log {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+      }
+
+      #log li {
+        font-size: 0.82rem;
+        font-family: "SF Mono", "Fira Code", monospace;
+        background: var(--color-bg-subtle);
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        padding: 0.45rem 0.75rem;
+        color: var(--color-text-muted);
+        display: flex;
+        gap: 0.75rem;
+      }
+
+      #log li .ts {
+        color: var(--ably-grey-400);
+        flex-shrink: 0;
+      }
+      #log li.info {
+        border-left: 3px solid var(--color-accent);
+      }
+      #log li.success {
+        border-left: 3px solid #4caf50;
+      }
+      #log li.err {
+        border-left: 3px solid #ef5350;
+        color: #ef5350;
+      }
+
+      #log:empty::before {
+        content: "No events yet…";
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+        font-style: italic;
+      }
+
+      /* ── Inputs ── */
+      .field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      label {
+        font-size: 0.85rem;
+        font-weight: 500;
+      }
+
+      input[type="text"] {
+        background: var(--color-bg-subtle);
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+        color: var(--color-text);
+        outline: none;
+        transition: border-color 0.15s;
+        width: 100%;
+      }
+      input[type="text"]:focus {
+        border-color: var(--color-accent);
+      }
+      input[type="text"]::placeholder {
+        color: var(--ably-grey-400);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a class="logo" href="#">
+        <div class="logo-mark">A</div>
+        Push Notifications
+      </a>
+    </header>
+
+    <main>
+      <div class="page-header">
+        <h1>Ably Push Notifications</h1>
+        <p class="subtitle">
+          Subscribe to a channel and receive real-time push notifications via
+          the Ably SDK.
+        </p>
+      </div>
+
+      <!-- Left column: controls -->
+      <div class="left-col">
+        <!-- Connection card -->
+        <div class="card">
+          <h2>🔌 Connection</h2>
+          <div class="status-row">
+            Ably:
+            <span id="connection-badge" class="badge idle">Disconnected</span>
+          </div>
+          <div class="status-row">
+            Notifications:
+            <span id="notif-badge" class="badge idle">Unknown</span>
+          </div>
+          <div class="field-group">
+            <label for="api-key-input">API Key</label>
+            <input
+              type="text"
+              id="api-key-input"
+              placeholder="your-app-id.key-id:secret"
+            />
+          </div>
+          <div class="field-group">
+            <label for="channel-input">Channel</label>
+            <input
+              type="text"
+              id="channel-input"
+              placeholder="push:demo"
+              value="push:demo"
+            />
+          </div>
+          <div class="actions">
+            <button id="connect-btn" onclick="connectAbly()">Connect</button>
+            <button
+              id="disconnect-btn"
+              class="secondary"
+              onclick="disconnectAbly()"
+              disabled
+            >
+              Disconnect
+            </button>
+          </div>
+        </div>
+
+        <!-- Push card -->
+        <div class="card">
+          <h2>🔔 Push Subscription</h2>
+          <div class="status-row">
+            Status:
+            <span id="push-badge" class="badge idle">Not subscribed</span>
+          </div>
+          <div class="actions">
+            <button id="subscribe-btn" onclick="subscribePush()" disabled>
+              Subscribe
+            </button>
+            <button
+              id="unsubscribe-btn"
+              class="secondary"
+              onclick="unsubscribePush()"
+              disabled
+            >
+              Unsubscribe
+            </button>
+          </div>
+        </div>
+
+        <!-- Publish card -->
+        <div class="card">
+          <h2>📤 Publish Test Message</h2>
+          <div class="field-group">
+            <label for="publish-input">Message (text)</label>
+            <input
+              type="text"
+              id="publish-input"
+              placeholder="Hello from Ably!"
+              value="Hello from Ably!"
+            />
+          </div>
+          <div class="field-group">
+            <label for="publish-data-input">Data (JSON)</label>
+            <input
+              type="text"
+              id="publish-data-input"
+              placeholder='{"key": "value"}'
+              value='{"key": "value"}'
+            />
+          </div>
+          <div class="actions">
+            <button id="publish-btn" onclick="publishMessage()" disabled>
+              Publish text
+            </button>
+            <button
+              id="publish-data-btn"
+              class="secondary"
+              onclick="publishData()"
+              disabled
+            >
+              Publish data
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column: event log -->
+      <div class="right-col">
+        <div class="card fill">
+          <h2>📋 Event Log</h2>
+          <ul id="log"></ul>
+        </div>
+      </div>
+    </main>
+
+    <!-- Ably SDK (browser bundle) -->
+    <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
