@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ably Push Notifications</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <script>
+      const _stored = localStorage.getItem('theme');
+      const _preferred = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', _stored || _preferred);
+    </script>
     <style>
       /* ── Reset ── */
       *,
@@ -16,25 +22,66 @@
 
       /* ── Brand tokens ── */
       :root {
-        --ably-orange: #ff5416;
-        --ably-orange-dark: #cc4312;
-        --ably-black: #03020d;
-        --ably-white: #ffffff;
-        --ably-grey-50: #f7f7f8;
-        --ably-grey-100: #ebebed;
-        --ably-grey-200: #d1d1d6;
-        --ably-grey-400: #8e8e99;
-        --ably-grey-600: #52525c;
+        --ably-orange:        #ff5416;
+        --ably-orange-light:  #ff7a47;
+        --ably-orange-dark:   #cc4312;
+        --ably-black:         #03020d;
+        --ably-white:         #ffffff;
+        --ably-grey-50:       #f7f7f8;
+        --ably-grey-100:      #ebebed;
+        --ably-grey-200:      #d1d1d6;
+        --ably-grey-400:      #8e8e99;
+        --ably-grey-600:      #52525c;
+        --ably-grey-800:      #1f1f26;
 
-        --color-bg: var(--ably-white);
-        --color-bg-subtle: var(--ably-grey-50);
-        --color-surface: var(--ably-white);
-        --color-border: var(--ably-grey-200);
-        --color-text: var(--ably-black);
-        --color-text-muted: var(--ably-grey-600);
-        --color-accent: var(--ably-orange);
+        /* Semantic tokens — light */
+        --color-bg:           var(--ably-white);
+        --color-bg-subtle:    var(--ably-grey-50);
+        --color-surface:      var(--ably-white);
+        --color-border:       var(--ably-grey-200);
+        --color-text:         var(--ably-black);
+        --color-text-muted:   var(--ably-grey-600);
+        --color-accent:       var(--ably-orange);
         --color-accent-hover: var(--ably-orange-dark);
-        --color-accent-text: var(--ably-white);
+        --color-accent-text:  var(--ably-white);
+
+        /* Badge colours — light */
+        --badge-idle-bg:      var(--ably-grey-100);
+        --badge-idle-fg:      var(--ably-grey-600);
+        --badge-pending-bg:   #fff3e0;
+        --badge-pending-fg:   #e65100;
+        --badge-ok-bg:        #e8f5e9;
+        --badge-ok-fg:        #2e7d32;
+        --badge-error-bg:     #ffebee;
+        --badge-error-fg:     #c62828;
+        --log-success-border: #4caf50;
+        --log-error-border:   #ef5350;
+        --log-error-fg:       #ef5350;
+      }
+
+      [data-theme="dark"] {
+        --color-bg:           var(--ably-black);
+        --color-bg-subtle:    var(--ably-grey-800);
+        --color-surface:      var(--ably-grey-800);
+        --color-border:       var(--ably-grey-600);
+        --color-text:         var(--ably-white);
+        --color-text-muted:   var(--ably-grey-400);
+        --color-accent:       var(--ably-orange);
+        --color-accent-hover: var(--ably-orange-light);
+        --color-accent-text:  var(--ably-white);
+
+        /* Badge colours — dark */
+        --badge-idle-bg:      var(--ably-grey-800);
+        --badge-idle-fg:      var(--ably-grey-400);
+        --badge-pending-bg:   #2d1a00;
+        --badge-pending-fg:   #ffb74d;
+        --badge-ok-bg:        #0d2b0f;
+        --badge-ok-fg:        #81c784;
+        --badge-error-bg:     #2d0a0a;
+        --badge-error-fg:     #ef9a9a;
+        --log-success-border: #66bb6a;
+        --log-error-border:   #ef5350;
+        --log-error-fg:       #ef9a9a;
       }
 
       /* ── Base ── */
@@ -45,6 +92,7 @@
         min-height: 100vh;
         display: flex;
         flex-direction: column;
+        transition: background 0.2s, color 0.2s;
       }
 
       a {
@@ -87,18 +135,17 @@
       header {
         display: flex;
         align-items: center;
-        padding: 1rem 2rem;
+        justify-content: space-between;
+        padding: 0.875rem 2rem;
         border-bottom: 1px solid var(--color-border);
         background: var(--color-surface);
+        transition: background 0.2s, border-color 0.2s;
       }
 
       .logo {
         display: flex;
         align-items: center;
-        gap: 0.6rem;
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--color-text);
+        gap: 0.75rem;
         text-decoration: none;
       }
 
@@ -110,9 +157,45 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #fff;
-        font-weight: 900;
+        flex-shrink: 0;
+      }
+
+      .logo-wordmark {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.1;
+      }
+
+      .logo-wordmark strong {
         font-size: 1rem;
+        font-weight: 800;
+        color: var(--color-text);
+        letter-spacing: -0.01em;
+      }
+
+      .logo-wordmark span {
+        font-size: 0.7rem;
+        font-weight: 500;
+        color: var(--color-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      /* ── Theme toggle ── */
+      .theme-toggle {
+        background: transparent;
+        border: 1px solid var(--color-border);
+        color: var(--color-text-muted);
+        border-radius: 6px;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+      }
+
+      .theme-toggle:hover {
+        background: var(--color-bg-subtle);
+        color: var(--color-text);
       }
 
       /* ── Three-column layout ── */
@@ -202,20 +285,20 @@
       }
 
       .badge.idle {
-        background: var(--ably-grey-100);
-        color: var(--ably-grey-600);
+        background: var(--badge-idle-bg);
+        color: var(--badge-idle-fg);
       }
       .badge.pending {
-        background: #fff3e0;
-        color: #e65100;
+        background: var(--badge-pending-bg);
+        color: var(--badge-pending-fg);
       }
       .badge.ok {
-        background: #e8f5e9;
-        color: #2e7d32;
+        background: var(--badge-ok-bg);
+        color: var(--badge-ok-fg);
       }
       .badge.error {
-        background: #ffebee;
-        color: #c62828;
+        background: var(--badge-error-bg);
+        color: var(--badge-error-fg);
       }
 
       /* ── Actions ── */
@@ -256,11 +339,11 @@
         border-left: 3px solid var(--color-accent);
       }
       #log li.success {
-        border-left: 3px solid #4caf50;
+        border-left: 3px solid var(--log-success-border);
       }
       #log li.err {
-        border-left: 3px solid #ef5350;
-        color: #ef5350;
+        border-left: 3px solid var(--log-error-border);
+        color: var(--log-error-fg);
       }
 
       #log:empty::before {
@@ -303,9 +386,17 @@
   <body>
     <header>
       <a class="logo" href="#">
-        <div class="logo-mark">A</div>
-        Push Notifications
+        <div class="logo-mark">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 2L17.5 15.5H2.5L10 2Z" fill="white"/>
+          </svg>
+        </div>
+        <div class="logo-wordmark">
+          <strong>Ably</strong>
+          <span>Push Notifications</span>
+        </div>
       </a>
+      <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">🌙 Dark</button>
     </header>
 
     <main>

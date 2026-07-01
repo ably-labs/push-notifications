@@ -5,6 +5,27 @@ const SW_PATH = '/service-worker.js';
 let ably = null;
 let channel = null;
 
+/* ── Theme toggle ── */
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  document.getElementById('theme-btn').textContent = next === 'dark' ? '☀️ Light' : '🌙 Dark';
+}
+
+// Sync button label on load
+(function syncThemeBtn() {
+  const onLoad = () => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', onLoad);
+  else onLoad();
+})();
+
 /* ── Logging ── */
 function log(msg, type = 'info') {
   const list = document.getElementById('log');
