@@ -34,33 +34,23 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   console.log('[SW] Push received:', event.data?.text());
 
-  let title = 'Ably Notification';
-  let options = {
-    icon: '/favicon.ico',
-    badge: '/favicon.ico',
-    tag: 'ably-push',          // Collapses repeated notifications
-    renotify: true,
-    data: {},
+  const eventData = event.data.json();
+
+  const notification = {
+    title: eventData.notification?.title,
+    body: eventData.notification?.body || '',
+    data: eventData.data || {},
   };
 
-  if (event.data) {
-    try {
-      const payload = event.data.json();
-      // Support Ably push payload envelope
-      const notif = payload.notification || payload;
-      title = notif.title || title;
-      options.body = notif.body || '';
-      options.data = payload.data || {};
-      if (notif.icon)  options.icon  = notif.icon;
-      if (notif.badge) options.badge = notif.badge;
-      if (notif.image) options.image = notif.image;
-    } catch {
-      // Plain text fallback
-      options.body = event.data.text();
-    }
+  if (notification.title) {
+    event.waitUntil(self.registration.showNotification(notification.title, notification));
+  }
+  else {
+    console.group('Data Only Push');
+    console.log(eventData);
+    console.groupEnd();
   }
 
-  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 /* ── Notification click ── */

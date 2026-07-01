@@ -115,15 +115,15 @@
         font-size: 1rem;
       }
 
-      /* ── Two-column layout ── */
+      /* ── Three-column layout ── */
       main {
         flex: 1;
-        max-width: 1100px;
+        max-width: 1400px;
         width: 100%;
         margin: 0 auto;
         padding: 2.5rem 1.5rem;
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 1fr 1fr;
         grid-template-rows: auto 1fr;
         gap: 1.5rem;
       }
@@ -142,15 +142,14 @@
         margin-top: 0.4rem;
       }
 
-      .left-col {
+      .col {
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
       }
 
-      .right-col {
-        display: flex;
-        flex-direction: column;
+      .col.log-col {
+        min-height: 0;
       }
 
       /* ── Card ── */
@@ -311,15 +310,11 @@
 
     <main>
       <div class="page-header">
-        <h1>Ably Push Notifications</h1>
-        <p class="subtitle">
-          Subscribe to a channel and receive real-time push notifications via
-          the Ably SDK.
-        </p>
+        <h1>Ably Browser Based Push Notifications</h1>
       </div>
 
-      <!-- Left column: controls -->
-      <div class="left-col">
+      <!-- Col 1: connection + subscription -->
+      <div class="col">
         <!-- Connection card -->
         <div class="card">
           <h2>🔌 Connection</h2>
@@ -328,7 +323,31 @@
             <span id="connection-badge" class="badge idle">Disconnected</span>
           </div>
           <div class="status-row">
-            Notifications:
+            Client ID:
+            <span
+              id="client-id-display"
+              style="
+                font-size: 0.85rem;
+                color: var(--color-text-muted);
+                font-weight: bold;
+              "
+              >—</span
+            >
+          </div>
+          <div class="status-row">
+            Device ID:
+            <span
+              id="device-id-display"
+              style="
+                font-size: 0.85rem;
+                color: var(--color-text-muted);
+                font-weight: bold;
+              "
+              >—</span
+            >
+          </div>
+          <div class="status-row">
+            Browser notification permission:
             <span id="notif-badge" class="badge idle">Unknown</span>
           </div>
           <div class="field-group">
@@ -340,7 +359,7 @@
             />
           </div>
           <div class="field-group">
-            <label for="channel-input">Channel</label>
+            <label for="channel-input">Message Channel</label>
             <input
               type="text"
               id="channel-input"
@@ -382,10 +401,31 @@
             </button>
           </div>
         </div>
+      </div>
 
+      <!-- Col 2: test messages -->
+      <div class="col">
         <!-- Publish card -->
         <div class="card">
-          <h2>📤 Publish Test Message</h2>
+          <h2>📤 Publish Test Message with Notification via Channel</h2>
+          <div class="field-group">
+            <label for="publish-notif-title">Notification title</label>
+            <input
+              type="text"
+              id="publish-notif-title"
+              placeholder="Notification Title"
+              value="Notification Title"
+            />
+          </div>
+          <div class="field-group">
+            <label for="publish-notif-body">Notification message</label>
+            <input
+              type="text"
+              id="publish-notif-body"
+              placeholder="Notification Message"
+              value="Notification Message"
+            />
+          </div>
           <div class="field-group">
             <label for="publish-input">Message (text)</label>
             <input
@@ -400,8 +440,8 @@
             <input
               type="text"
               id="publish-data-input"
-              placeholder='{"key": "value"}'
-              value='{"key": "value"}'
+              placeholder='{"mykey": "myvalue"}'
+              value='{"mykey": "myvalue"}'
             />
           </div>
           <div class="actions">
@@ -418,10 +458,66 @@
             </button>
           </div>
         </div>
+
+        <!-- Direct push card -->
+        <div class="card">
+          <h2>🔔 Publish Direct Push Notification (admin)</h2>
+          <div class="field-group">
+            <label for="direct-notif-title"
+              >Direct notification title
+              <i>(leave blank for data only)</i></label
+            >
+            <input
+              type="text"
+              id="direct-notif-title"
+              placeholder="Direct Notification Title"
+              value="Direct Notification Title"
+            />
+          </div>
+          <div class="field-group">
+            <label for="direct-notif-body"
+              >Direct notification message
+              <i>(leave blank for data only)</i></label
+            >
+            <input
+              type="text"
+              id="direct-notif-body"
+              placeholder="Direct Notification Message"
+              value="Direct Notification Message"
+            />
+          </div>
+          <div class="field-group">
+            <label for="direct-data-input">Data (JSON)</label>
+            <input
+              type="text"
+              id="direct-data-input"
+              placeholder='{"mykey": "myvalue"}'
+              value='{"mykey": "myvalue"}'
+            />
+          </div>
+          <div class="field-group">
+            <label for="direct-client-id"
+              >Client ID to send notification to</label
+            >
+            <input
+              type="text"
+              id="direct-client-id"
+              placeholder="push-demo-client"
+              value="push-demo-client"
+            />
+          </div>
+          <div class="actions">
+            <button id="direct-publish-btn" onclick="publishDirect()" disabled>
+              Publish direct
+            </button>
+
+            <i> Check console logging for data only direct push detection </i>
+          </div>
+        </div>
       </div>
 
-      <!-- Right column: event log -->
-      <div class="right-col">
+      <!-- Col 3: event log -->
+      <div class="col log-col">
         <div class="card fill">
           <h2>📋 Event Log</h2>
           <ul id="log"></ul>
@@ -431,6 +527,8 @@
 
     <!-- Ably SDK (browser bundle) -->
     <script src="https://cdn.ably.com/lib/ably.min-2.js"></script>
+    <script src="https://cdn.ably.com/lib/push.umd.min-2.js"></script>
+    <script src="config.js" onerror="window.ABLY_CONFIG = {}"></script>
     <script src="app.js"></script>
   </body>
 </html>

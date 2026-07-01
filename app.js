@@ -29,6 +29,7 @@ function setButtons(connected) {
   document.getElementById('subscribe-btn').disabled = !connected;
   document.getElementById('publish-btn').disabled = !connected;
   document.getElementById('publish-data-btn').disabled = !connected;
+  document.getElementById('direct-publish-btn').disabled = !connected;
 }
 
 /* ── Service Worker registration ── */
@@ -82,16 +83,24 @@ async function connectAbly() {
   log('Connecting to Ably…');
 
   try {
-    ably = new Ably.Realtime({ key: apiKey, clientId: 'push-demo-client' });
+    ably = new Ably.Realtime({
+      key: apiKey,
+      clientId: 'push-demo-client',
+      plugins: { Push: AblyPushPlugin },
+      pushServiceWorkerUrl: '/service-worker.js',
+    });
 
     ably.connection.on('connected', () => {
       setBadge('connection-badge', 'Connected', 'ok');
-      log(`Connected — client ID: ${ably.auth.clientId || 'anonymous'}`, 'success');
+      const clientId = ably.auth.clientId || 'anonymous';
+      document.getElementById('client-id-display').textContent = clientId;
+      log(`Connected — client ID: ${clientId}`, 'success');
       setButtons(true);
     });
 
     ably.connection.on('disconnected', () => {
       setBadge('connection-badge', 'Disconnected', 'idle');
+      document.getElementById('client-id-display').textContent = '—';
       log('Disconnected from Ably');
       setButtons(false);
       setBadge('push-badge', 'Not subscribed', 'idle');
@@ -113,13 +122,52 @@ async function publishMessage() {
   if (!ably) { log('Not connected', 'err'); return; }
   const channelName = document.getElementById('channel-input').value.trim() || 'push:demo';
   const text = document.getElementById('publish-input').value.trim();
+  const title = document.getElementById('publish-notif-title').value.trim() || 'Ably Push';
+  const body = document.getElementById('publish-notif-body').value.trim() || text;
+  const raw = document.getElementById('publish-data-input').value.trim();
   if (!text) { log('Enter a message to publish', 'err'); return; }
+
+  let data = undefined;
+  if (raw) {
+    try { data = JSON.parse(raw); } catch { log('Invalid JSON in data field', 'err'); return; }
+  }
+
   try {
     const ch = ably.channels.get(channelName);
-    await ch.publish('message', text);
-    log(`📤 Published to [${channelName}]: ${text}`, 'success');
+    await ch.publish({
+      name: 'message',
+      data: text,
+      extras: { push: { notification: { title, body }, ...(data && { data }) } },
+    });
+    log(`📤 Published to channel [${channelName}]: ${text}`, 'success');
   } catch (err) {
     log(`Publish failed: ${err.message}`, 'err');
+  }
+}
+
+/* ── Publish direct push (no channel message) ── */
+async function publishDirect() {
+  if (!ably) { log('Not connected', 'err'); return; }
+  const title = document.getElementById('direct-notif-title').value.trim();
+  const body = document.getElementById('direct-notif-body').value.trim();
+  const raw = document.getElementById('direct-data-input').value.trim();
+  const clientId = document.getElementById('direct-client-id').value.trim();
+  if (!clientId) { log('Enter a client ID to target', 'err'); return; }
+
+  let data = undefined;
+  if (raw) {
+    try { data = JSON.parse(raw); } catch { log('Invalid JSON in data field', 'err'); return; }
+  }
+
+  try {
+    // clientId could be switched for deviceID here
+    await ably.push.admin.publish(
+      { clientId },
+      { notification: { title, body }, ...(data && { data }) }
+    );
+    log(`📤 Direct push sent to clientId [${clientId}]`, 'success');
+  } catch (err) {
+    log(`Direct push failed: ${err.message}`, 'err');
   }
 }
 
@@ -171,37 +219,43 @@ async function subscribePush() {
 
   const channelName = document.getElementById('channel-input').value.trim() || 'push:demo';
 
-  // 1. Register service worker
-  const swReg = await registerServiceWorker();
-  if (!swReg) return;
+  // 1. Activate push
+  try {
+    log('Activating push…');
+    await ably.push.activate();
+    const deviceId = ably.device().id;
+    document.getElementById('device-id-display').textContent = deviceId;
+    log('Push activated', 'success');
+  } catch (err) {
+    setBadge('push-badge', 'Error', 'error');
+    log(`Push activation failed: ${err.message}`, 'err');
+    return;
+  }
 
-  // 2. Request notification permission
-  const permitted = await requestNotificationPermission();
-  if (!permitted) return;
-
-  // 3. Subscribe to Ably channel for real-time messages
+  // 2. Subscribe device to channel push + Realtime for in-page event log
   try {
     channel = ably.channels.get(channelName);
+    await channel.push.subscribeDevice();
+
 
     channel.subscribe((message) => {
       const isData = message.name === 'data';
-      console.log(`[Ably] ${isData ? 'Data' : 'Message'} received:`, { name: message.name, data: message.data, timestamp: message.timestamp });
-      log(`📨 [${message.name}] ${JSON.stringify(message.data)}`);
-
-      // Only show a notification for non-data messages
-      if (!isData && Notification.permission === 'granted') {
-        new Notification('Ably Push', {
-          body: typeof message.data === 'string'
-            ? message.data
-            : JSON.stringify(message.data),
-          icon: '/favicon.ico',
-        });
+      console.log(message.name);
+      console.log(`[Ably] ${isData ? 'Data' : 'Message'} received:`, { message });
+      if (message.name) {
+        log(`📨 [${message.name}] ${JSON.stringify(message.data)}`);
+      }
+      else if (message.extras.push) {
+        log(`📨 [Notification Message] ${JSON.stringify(message.extras.push)}`);
       }
     });
 
+
+
+
+
     setBadge('push-badge', 'Subscribed', 'ok');
     log(`Subscribed to channel: ${channelName}`, 'success');
-
     document.getElementById('subscribe-btn').disabled = true;
     document.getElementById('unsubscribe-btn').disabled = false;
   } catch (err) {
@@ -235,14 +289,15 @@ function unsubscribePush() {
     setBadge('notif-badge', label, state);
   }
 
-  // Pre-fill API key from URL param ?key=... (handy for dev)
+  // Pre-fill from config.js (gitignored local dev file)
+  const cfg = window.ABLY_CONFIG || {};
+  if (cfg.apiKey) document.getElementById('api-key-input').value = cfg.apiKey;
+  if (cfg.channel) document.getElementById('channel-input').value = cfg.channel;
+
+  // URL params override config
   const params = new URLSearchParams(window.location.search);
-  if (params.get('key')) {
-    document.getElementById('api-key-input').value = params.get('key');
-  }
-  if (params.get('channel')) {
-    document.getElementById('channel-input').value = params.get('channel');
-  }
+  if (params.get('key')) document.getElementById('api-key-input').value = params.get('key');
+  if (params.get('channel')) document.getElementById('channel-input').value = params.get('channel');
 
   log('Page loaded — enter your API key to connect');
 })();
