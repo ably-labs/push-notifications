@@ -258,7 +258,7 @@ async function subscribePush() {
     channel = ably.channels.get(channelName);
     await channel.push.subscribeDevice();
 
-
+    //used to update the event log
     channel.subscribe((message) => {
       const isData = message.name === 'data';
       console.log(message.name);
